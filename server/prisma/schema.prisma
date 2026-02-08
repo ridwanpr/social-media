@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  fullname       String   @db.VarChar(255)
+  email          String   @unique @db.VarChar(255)
+  username       String   @unique @db.VarChar(255)
+  password       String   @db.VarChar(255)
+  bio            String?  @db.Text
+  image          String?  @db.VarChar(255)
+  imageId        String?  @db.VarChar(255)
+  followingCount Int      @default(0)
+  followerCount  Int      @default(0)
+  postCount      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  posts     Post[]
+  comments  Comment[]
+  bookmarks Bookmark[]
+
+  following Follow[] @relation("UserFollows")
+  followers Follow[] @relation("UserFollowedBy")
+}
+
+model Post {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  image        String?  @db.VarChar(255)
+  imageId      String?  @db.VarChar(255)
+  caption      String?  @db.Text
+  likeCount    Int      @default(0)
+  commentCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+  comments  Comment[]
+  bookmarks Bookmark[]
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  postId    Int
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  post Post @relation(fields: [postId], references: [id])
+}
+
+model Bookmark {
+  userId    Int
+  postId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  post Post @relation(fields: [postId], references: [id])
+
+  @@id([userId, postId])
+}
+
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("UserFollows", fields: [followerId], references: [id])
+  following User @relation("UserFollowedBy", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+}
