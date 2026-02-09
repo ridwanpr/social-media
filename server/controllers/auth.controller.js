@@ -1,4 +1,5 @@
 import * as z from "zod";
+import * as jose from "jose";
 import bcrypt from "bcrypt";
 import { prisma } from "../lib/prisma.js";
 
@@ -68,6 +69,7 @@ const registerUser = async (req, res) => {
       data: newUser,
     });
   } catch (err) {
+    console.log(err);
     if (err instanceof z.ZodError) {
       const errors = z.flattenError(err);
 
@@ -77,13 +79,71 @@ const registerUser = async (req, res) => {
       });
     }
 
-    console.log(err);
-    return res.status(500).json({ messaeg: "Unexpected errors" });
+    return res.status(500).json({ message: "Unexpected errors" });
   }
 };
 
-const loginUser = (req, res) => {
-  return res.sendStatus(200);
+const loginUser = async (req, res) => {
+  try {
+    const loginSchema = z.object({
+      email: z.email(),
+      password: z.string().min(8),
+    });
+
+    const validated = loginSchema.parse(req.body);
+
+    const findUser = await prisma.user.findUnique({
+      where: {
+        email: validated.email,
+      },
+    });
+
+    if (!findUser) {
+      return res.status(401).json({ message: "Invalid Credentials" });
+    }
+
+    const checkPassword = await bcrypt.compare(
+      validated.password,
+      findUser.password,
+    );
+
+    if (!checkPassword) {
+      return res.status(401).json({ message: "Invalid Credentials" });
+    }
+
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const alg = "HS256";
+    const jwt = await new jose.SignJWT({ id: findUser.id })
+      .setProtectedHeader({ alg })
+      .setIssuedAt()
+      .setExpirationTime("1d")
+      .sign(secret);
+
+    return res.status(200).json({
+      message: "Login Success",
+      data: {
+        id: findUser.id,
+        email: findUser.email,
+        username: findUser.username,
+        name: findUser.name,
+        image: findUser.image,
+        bio: findUser.bio,
+      },
+      token: jwt,
+    });
+  } catch (err) {
+    console.log(err);
+    if (err instanceof z.ZodError) {
+      const errors = z.flattenError(err);
+
+      return res.status(400).json({
+        message: "Login user failed",
+        errors: errors.fieldErrors,
+      });
+    }
+
+    return res.status(500).json({ message: "Unexpected errors" });
+  }
 };
 
 export { registerUser, loginUser };
