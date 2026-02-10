@@ -33,6 +33,7 @@ export const authMiddleware = async (req, res, next) => {
       return res.sendStatus(401);
     }
 
+    req.user = user;
     next();
   } catch (err) {
     console.log(err);
